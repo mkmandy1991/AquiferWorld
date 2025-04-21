@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <link rel="stylesheet" href="css/leaflet.css">
+        <link rel="stylesheet" href="css/L.Control.Layers.Tree.css">
+        <link rel="stylesheet" href="css/L.Control.Locate.min.css">
+        <link rel="stylesheet" href="css/qgis2web.css">
+        <link rel="stylesheet" href="css/fontawesome-all.min.css">
+        <link rel="stylesheet" href="css/leaflet-search.css">
+        <style>
+        html, body, #map {
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            margin: 0;
+        }
+        </style>
+        <title>Aquifers of the World</title>
+    </head>
+    <body>
+        <div id="map">
+        </div>
+        <script src="js/qgis2web_expressions.js"></script>
+        <script src="js/leaflet.js"></script>
+        <script src="js/L.Control.Layers.Tree.min.js"></script>
+        <script src="js/L.Control.Locate.min.js"></script>
+        <script src="js/leaflet.rotatedMarker.js"></script>
+        <script src="js/leaflet.pattern.js"></script>
+        <script src="js/leaflet-hash.js"></script>
+        <script src="js/Autolinker.min.js"></script>
+        <script src="js/rbush.min.js"></script>
+        <script src="js/labelgun.min.js"></script>
+        <script src="js/labels.js"></script>
+        <script src="js/leaflet-search.js"></script>
+        <script src="data/Aquifers_1.js"></script>
+        <script>
+        var highlightLayer;
+        function highlightFeature(e) {
+            highlightLayer = e.target;
+
+            if (e.target.feature.geometry.type === 'LineString' || e.target.feature.geometry.type === 'MultiLineString') {
+              highlightLayer.setStyle({
+                color: '#ffff00',
+              });
+            } else {
+              highlightLayer.setStyle({
+                fillColor: '#ffff00',
+                fillOpacity: 1
+              });
+            }
+        }
+        var map = L.map('map', {
+            zoomControl:false, maxZoom:28, minZoom:1
+        }).fitBounds([[-89.33235133838666,-131.80718631744395],[102.71472896289835,181.19154758453396]]);
+        var hash = new L.Hash(map);
+        map.attributionControl.setPrefix('<a href="https://github.com/tomchadwin/qgis2web" target="_blank">qgis2web</a> &middot; <a href="https://leafletjs.com" title="A JS library for interactive maps">Leaflet</a> &middot; <a href="https://qgis.org">QGIS</a>');
+        var autolinker = new Autolinker({truncate: {length: 30, location: 'smart'}});
+        // remove popup's row if "visible-with-data"
+        function removeEmptyRowsFromPopupContent(content, feature) {
+         var tempDiv = document.createElement('div');
+         tempDiv.innerHTML = content;
+         var rows = tempDiv.querySelectorAll('tr');
+         for (var i = 0; i < rows.length; i++) {
+             var td = rows[i].querySelector('td.visible-with-data');
+             var key = td ? td.id : '';
+             if (td && td.classList.contains('visible-with-data') && feature.properties[key] == null) {
+                 rows[i].parentNode.removeChild(rows[i]);
+             }
+         }
+         return tempDiv.innerHTML;
+        }
+        // add class to format popup if it contains media
+		function addClassToPopupIfMedia(content, popup) {
+			var tempDiv = document.createElement('div');
+			tempDiv.innerHTML = content;
+			if (tempDiv.querySelector('td img')) {
+				popup._contentNode.classList.add('media');
+					// Delay to force the redraw
+					setTimeout(function() {
+						popup.update();
+					}, 10);
+			} else {
+				popup._contentNode.classList.remove('media');
+			}
+		}
+        var title = new L.Control({'position':'bottomleft'});
+        title.onAdd = function (map) {
+            this._div = L.DomUtil.create('div', 'info');
+            this.update();
+            return this._div;
+        };
+        title.update = function () {
+            this._div.innerHTML = '<h2>Aquifers of the World</h2>';
+        };
+        title.addTo(map);
+        var abstract = new L.Control({'position':'bottomleft'});
+        abstract.onAdd = function (map) {
+            this._div = L.DomUtil.create('div',
+            'leaflet-control abstract');
+            this._div.id = 'abstract'
+
+                abstract.show();
+                return this._div;
+            };
+            abstract.show = function () {
+                this._div.classList.remove("abstract");
+                this._div.classList.add("abstractUncollapsed");
+                this._div.innerHTML = 'Data from IGRAC';
+        };
+        abstract.addTo(map);
+        var zoomControl = L.control.zoom({
+            position: 'topleft'
+        }).addTo(map);
+        L.control.locate({locateOptions: {maxZoom: 19}}).addTo(map);
+        var bounds_group = new L.featureGroup([]);
+        function setBounds() {
+        }
+        map.createPane('pane_ESRIPhysical_0');
+        map.getPane('pane_ESRIPhysical_0').style.zIndex = 400;
+        var layer_ESRIPhysical_0 = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Physical_Map/MapServer/tile/{z}/{y}/{x}', {
+            pane: 'pane_ESRIPhysical_0',
+            opacity: 1.0,
+            attribution: '',
+            minZoom: 1,
+            maxZoom: 28,
+            minNativeZoom: 0,
+            maxNativeZoom: 20
+        });
+        layer_ESRIPhysical_0;
+        map.addLayer(layer_ESRIPhysical_0);
+        function pop_Aquifers_1(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Meters Change Per Year</th>\
+                        <td class="visible-with-data" id="m_per_year">' + (feature.properties['m_per_year'] !== null ? autolinker.link(String(feature.properties['m_per_year']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Aquifer Name</th>\
+                        <td class="visible-with-data" id="aquifer">' + (feature.properties['aquifer'] !== null ? autolinker.link(String(feature.properties['aquifer']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Aquifers_1_0(feature) {
+            if (feature.properties['m_per_year'] >= -2.581250 && feature.properties['m_per_year'] <= -0.030569 ) {
+                return {
+                pane: 'pane_Aquifers_1',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.6)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(202,0,32,0.6)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['m_per_year'] >= -0.030569 && feature.properties['m_per_year'] <= -0.000102 ) {
+                return {
+                pane: 'pane_Aquifers_1',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.6)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(230,110,97,0.6)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['m_per_year'] >= -0.000102 && feature.properties['m_per_year'] <= 0.021367 ) {
+                return {
+                pane: 'pane_Aquifers_1',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.6)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(245,192,169,0.6)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['m_per_year'] >= 0.021367 && feature.properties['m_per_year'] <= 0.064573 ) {
+                return {
+                pane: 'pane_Aquifers_1',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.6)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(247,247,247,0.6)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['m_per_year'] >= 0.064573 && feature.properties['m_per_year'] <= 0.170000 ) {
+                return {
+                pane: 'pane_Aquifers_1',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.6)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(180,214,230,0.6)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['m_per_year'] >= 0.170000 && feature.properties['m_per_year'] <= 0.440262 ) {
+                return {
+                pane: 'pane_Aquifers_1',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.6)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(99,169,207,0.6)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['m_per_year'] >= 0.440262 && feature.properties['m_per_year'] <= 2.951098 ) {
+                return {
+                pane: 'pane_Aquifers_1',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.6)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(5,113,176,0.6)',
+                interactive: true,
+            }
+            }
+        }
+        map.createPane('pane_Aquifers_1');
+        map.getPane('pane_Aquifers_1').style.zIndex = 401;
+        map.getPane('pane_Aquifers_1').style['mix-blend-mode'] = 'normal';
+        var layer_Aquifers_1 = new L.geoJson(json_Aquifers_1, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Aquifers_1',
+            layerName: 'layer_Aquifers_1',
+            pane: 'pane_Aquifers_1',
+            onEachFeature: pop_Aquifers_1,
+            style: style_Aquifers_1_0,
+        });
+        bounds_group.addLayer(layer_Aquifers_1);
+        map.addLayer(layer_Aquifers_1);
+        var overlaysTree = [
+            {label: 'Aquifers<br /><table><tr><td style="text-align: center;"><img src="legend/Aquifers_1_258100310.png" /></td><td>-2.581 - -0.031</td></tr><tr><td style="text-align: center;"><img src="legend/Aquifers_1_003101.png" /></td><td>-0.031 - 0</td></tr><tr><td style="text-align: center;"><img src="legend/Aquifers_1_000212.png" /></td><td>0 - 0.021</td></tr><tr><td style="text-align: center;"><img src="legend/Aquifers_1_002100653.png" /></td><td>0.021 - 0.065</td></tr><tr><td style="text-align: center;"><img src="legend/Aquifers_1_00650174.png" /></td><td>0.065 - 0.17</td></tr><tr><td style="text-align: center;"><img src="legend/Aquifers_1_0170445.png" /></td><td>0.17 - 0.44</td></tr><tr><td style="text-align: center;"><img src="legend/Aquifers_1_04429516.png" /></td><td>0.44 - 2.951</td></tr></table>', layer: layer_Aquifers_1},
+            {label: "ESRI Physical", layer: layer_ESRIPhysical_0, radioGroup: 'bm' },]
+        var lay = L.control.layers.tree(null, overlaysTree,{
+            //namedToggle: true,
+            //selectorBack: false,
+            //closedSymbol: '&#8862; &#x1f5c0;',
+            //openedSymbol: '&#8863; &#x1f5c1;',
+            //collapseAll: 'Collapse all',
+            //expandAll: 'Expand all',
+            collapsed: true,
+        });
+        lay.addTo(map);
+        setBounds();
+        map.addControl(new L.Control.Search({
+            layer: layer_Aquifers_1,
+            initial: false,
+            hideMarkerOnCollapse: true,
+            propertyName: 'aquifer'}));
+        document.getElementsByClassName('search-button')[0].className +=
+         ' fa fa-binoculars';
+        resetLabels([layer_Aquifers_1]);
+        map.on("zoomend", function(){
+            resetLabels([layer_Aquifers_1]);
+        });
+        map.on("layeradd", function(){
+            resetLabels([layer_Aquifers_1]);
+        });
+        map.on("layerremove", function(){
+            resetLabels([layer_Aquifers_1]);
+        });
+        </script>
+    </body>
+</html>
